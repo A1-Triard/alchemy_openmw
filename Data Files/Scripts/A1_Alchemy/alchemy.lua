@@ -3,6 +3,81 @@ local ui = require('openmw.ui')
 local util = require('openmw.util') 
 local async = require('openmw.async')
 local input = require('openmw.input')
+local types = require('openmw.types')
+local self = require('openmw.self')
+
+local mortar = nil
+local retort = nil
+local alembic = nil
+local calcinator = nil
+
+local function findApparatus(apparatus)
+    mortar = nil
+    retort = nil
+    alembic = nil
+    calcinator = nil
+    local inv = types.Actor.inventory(self.object)
+    for _, item in ipairs(inv:getAll(types.Apparatus)) do
+        local record = types.Apparatus.record(item)
+        if record.type == types.Apparatus.TYPE.MortarPestle then
+            if not mortar or types.Apparatus.record(mortar).quiality < record.quiality then
+                mortar = item
+            end
+        elseif record.type == types.Apparatus.TYPE.Retort then
+            if not retort or types.Apparatus.record(retort).quiality < record.quiality then
+                retort = item
+            end
+        elseif record.type == types.Apparatus.TYPE.Alembic then
+            if not alembic or types.Apparatus.record(alembic).quiality < record.quiality then
+                alembic = item
+            end
+        else -- record.type == types.Apparatus.TYPE.Calcinator
+            if not calcinator or types.Apparatus.record(calcinator).quiality < record.quiality then
+                calcinator = item
+            end
+        end
+    end
+    local record = types.Apparatus.record(apparatus)
+    if record.type == types.Apparatus.TYPE.MortarPestle then
+        mortar = apparatus
+    elseif record.type == types.Apparatus.TYPE.Retort then
+        retort = apparatus
+    elseif record.type == types.Apparatus.TYPE.Alembic then
+        alembic = apparatus
+    else -- record.type == types.Apparatus.TYPE.Calcinator
+        calcinator = apparatus
+    end
+end
+
+local function createApparatusItem(object)
+    local image
+    if object then
+        local icon = string.gsub(types.Apparatus.record(object).icon, '\\', '/')
+        image = {
+            type = ui.TYPE.Image,
+            props = {
+                size = util.vector2(32, 32),
+                resource = ui.texture({
+                    size = util.vector2(32, 32),
+                    path = icon,
+                }),
+            },
+        }
+    else
+        image = {
+            type = ui.TYPE.Widget,
+            props = {
+                size = util.vector2(32, 32),
+            },
+        }
+    end
+    return {
+        template = I.MWUI.templates.padding,
+        content = ui.content({
+            image,
+        }),
+    }
+end
 
 local function createButton(text, textMinWidth, textTemplate, click, mouseMove)
     return {
@@ -89,6 +164,68 @@ local function createAlchemyMenu(hoverCreateButton)
                         },
                         content = ui.content({
                             {
+                                template = I.MWUI.templates.textHeader,
+                                props = {
+                                    text = 'Аппарат',
+                                },
+                            },
+                            {
+                                template = I.MWUI.templates.interval,
+                            },
+                            {
+                                type = ui.TYPE.Flex,
+                                props = {
+                                    horizontal = true,
+                                },
+                                content = ui.content({
+                                    {
+                                        template = I.MWUI.templates.box,
+                                        content = ui.content({
+                                            createApparatusItem(mortar),
+                                        }),
+                                    },
+                                    {
+                                        template = I.MWUI.templates.interval,
+                                    },
+                                    {
+                                        template = I.MWUI.templates.box,
+                                        content = ui.content({
+                                            createApparatusItem(retort),
+                                        }),
+                                    },
+                                    {
+                                        template = I.MWUI.templates.interval,
+                                    },
+                                    {
+                                        template = I.MWUI.templates.box,
+                                        content = ui.content({
+                                            createApparatusItem(alembic),
+                                        }),
+                                    },
+                                    {
+                                        template = I.MWUI.templates.interval,
+                                    },
+                                    {
+                                        template = I.MWUI.templates.box,
+                                        content = ui.content({
+                                            createApparatusItem(calcinator),
+                                        }),
+                                    },
+                                }),
+                            },
+                            {
+                                template = I.MWUI.templates.interval,
+                            },
+                            {
+                                template = I.MWUI.templates.textHeader,
+                                props = {
+                                    text = 'Ингридиенты',
+                                },
+                            },
+                            {
+                                template = I.MWUI.templates.interval,
+                            },
+                            {
                                 template = I.MWUI.templates.box,
                                 content = ui.content({
                                     {
@@ -145,6 +282,7 @@ local function openAlchemyMenu(data)
     closeAlchemyMenu()
     I.UI.setMode(nil)
     I.UI.setMode('Interface', { windows = { } })
+    findApparatus(data.apparatus)
     alchemyMenu = ui.create(createAlchemyMenu(false))
     alchemyMenuCreateButtonHovered = false
 end
