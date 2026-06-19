@@ -50,6 +50,7 @@ local function findApparatus(apparatus)
 end
 
 local function createApparatusTooltip(object, position)
+    local quality = string.format('%.2f', types.Apparatus.record(object).quality)
     return {
         layer = 'Windows',
         template = I.MWUI.templates.boxSolid,
@@ -62,10 +63,28 @@ local function createApparatusTooltip(object, position)
                 template = I.MWUI.templates.padding,
                 content = ui.content({
                     {
-                        template = I.MWUI.templates.textHeader,
+                        type = ui.TYPE.Flex,
                         props = {
-                            text = types.Apparatus.record(object).name,
+                            horizontal = false,
+                            arrange = ui.ALIGNMENT.Center,
                         },
+                        content = ui.content({
+                            {
+                                template = I.MWUI.templates.textHeader,
+                                props = {
+                                    text = types.Apparatus.record(object).name,
+                                },
+                            },
+                            {
+                                template = I.MWUI.templates.interval,
+                            },
+                            {
+                                template = I.MWUI.templates.textNormal,
+                                props = {
+                                    text = 'Качество: ' .. quality,
+                                },
+                            },
+                        }),
                     },
                 }),
             },
