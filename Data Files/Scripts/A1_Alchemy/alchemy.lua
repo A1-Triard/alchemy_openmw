@@ -4,11 +4,12 @@ local util = require('openmw.util')
 local async = require('openmw.async')
 local input = require('openmw.input')
 
-local function createButton(text, textMinWidth, textTemplate, click)
+local function createButton(text, textMinWidth, textTemplate, click, mouseMove)
     return {
         template = I.MWUI.templates.boxThick,
         events = {
             mouseClick = async:callback(click),
+            mouseMove = async:callback(mouseMove),
         },
         content = ui.content({
             {
@@ -42,6 +43,7 @@ local function createButton(text, textMinWidth, textTemplate, click)
 end
 
 local alchemyMenu = nil
+local alchemyMenuCreateButtonHovered = false
 
 local function closeAlchemyMenu()
     if alchemyMenu then
@@ -55,14 +57,27 @@ local function closeAlchemyMenu()
     end
 end
 
-local function createAlchemyMenu()
-    return ui.create({
+local updateAlchemyMenu = nil
+
+local function createAlchemyMenu(hoverCreateButton)
+    local createButtonTemplate
+    if hoverCreateButton then
+        createButtonTemplate = I.MWUI.templates.textHeader
+    else
+        createButtonTemplate = I.MWUI.templates.textNormal
+    end
+    return {
         layer = 'Windows',
         template = I.MWUI.templates.boxTransparentThick,
         props = {
             relativePosition = util.vector2(0.5, 0.5),
             anchor = util.vector2(0.5, 0.5),
         }, 
+        events = {
+            mouseMove = async:callback(function(e)
+                updateAlchemyMenu(false)
+            end),
+        },
         content = ui.content({
             {
                 template = I.MWUI.templates.padding,
@@ -97,8 +112,16 @@ local function createAlchemyMenu()
                                     stretch = 1,
                                 },
                                 content = ui.content({
+                                    createButton('Создать', 80, createButtonTemplate, function()
+                                    end, function(e)
+                                        updateAlchemyMenu(true)
+                                    end),
+                                    {
+                                        template = I.MWUI.templates.interval,
+                                    },
                                     createButton('Отмена', 80, I.MWUI.templates.textHeader, function()
                                         closeAlchemyMenu()
+                                    end, function(e)
                                     end),
                                 }),
                             },
@@ -107,14 +130,23 @@ local function createAlchemyMenu()
                 }),
             },
         }),
-    })
+    }
+end
+
+updateAlchemyMenu = function(hoverCreateButton)
+    if alchemyMenu and hoverCreateButton ~= alchemyMenuCreateButtonHovered then
+        alchemyMenuCreateButtonHovered = hoverCreateButton
+        alchemyMenu.layout = createAlchemyMenu(hoverCreateButton)
+        alchemyMenu:update()
+    end
 end
 
 local function openAlchemyMenu(data)
     closeAlchemyMenu()
     I.UI.setMode(nil)
     I.UI.setMode('Interface', { windows = { } })
-    alchemyMenu = createAlchemyMenu()
+    alchemyMenu = ui.create(createAlchemyMenu(false))
+    alchemyMenuCreateButtonHovered = false
 end
 
 local function onKeyPress(key)
