@@ -92,17 +92,88 @@ local function createApparatusTooltip(object, position)
     }
 end
 
-local apparatusTooltip = nil
+local function createIngredientTooltip(object, position)
+    local weight = string.format('%.1f', types.Ingredient.record(object).weight)
+    local value = tostring(types.Ingredient.record(object).value)
+    return {
+        layer = 'Windows',
+        template = I.MWUI.templates.boxSolid,
+        props = {
+            position = position,
+            anchor = util.vector2(0.4, 0),
+        },
+        content = ui.content({
+            {
+                template = I.MWUI.templates.padding,
+                content = ui.content({
+                    {
+                        type = ui.TYPE.Flex,
+                        props = {
+                            horizontal = false,
+                            arrange = ui.ALIGNMENT.Center,
+                        },
+                        content = ui.content({
+                            {
+                                template = I.MWUI.templates.textHeader,
+                                props = {
+                                    text = types.Ingredient.record(object).name .. ' (' .. object.count .. ')',
+                                },
+                            },
+                            {
+                                template = I.MWUI.templates.interval,
+                            },
+                            {
+                                template = I.MWUI.templates.textNormal,
+                                props = {
+                                    text = 'Вес: ' .. weight,
+                                },
+                            },
+                            {
+                                template = I.MWUI.templates.interval,
+                            },
+                            {
+                                template = I.MWUI.templates.textNormal,
+                                props = {
+                                    text = 'Цена: ' .. value,
+                                },
+                            },
+                        }),
+                    },
+                }),
+            },
+        }),
+    }
+end
 
-local function updateApparatusTooltip(apparatus, position)
-    if apparatus and apparatusTooltip then
-        apparatusTooltip.layout = createApparatusTooltip(apparatus, position)
-        apparatusTooltip:update()
-    elseif apparatus then
-        apparatusTooltip = ui.create(createApparatusTooltip(apparatus, position))
-    elseif apparatusTooltip then
-        apparatusTooltip:destroy()
-        apparatusTooltip = nil
+local function createTooltip(object, position)
+    if types.Ingredient.objectIsInstance(object) then
+        return createIngredientTooltip(object, position)
+    else
+        return createApparatusTooltip(object, position)
+    end
+end
+
+local tooltip = nil
+local tooltipType = nil
+
+local function updateTooltip(object, position)
+    if object and tooltip then
+        local tooltipPosition = position + util.vector2(0, 30)
+        if object.type == tooltipType then
+            tooltip.layout = createTooltip(object, tooltipPosition)
+            tooltip:update()
+        else
+            tooltip:destroy()
+            tooltip = ui.create(createTooltip(object, tooltipPosition))
+            tooltipType = object.type
+        end
+    elseif object then
+        local tooltipPosition = position + util.vector2(0, 30)
+        tooltip = ui.create(createTooltip(object, tooltipPosition))
+        tooltipType = object.type
+    elseif tooltip then
+        tooltip:destroy()
+        tooltip = nil
     end
 end
 
@@ -132,7 +203,7 @@ local function createApparatusItem(object)
         template = I.MWUI.templates.padding,
         events = {
             mouseMove = async:callback(function(e)
-                updateApparatusTooltip(object, e.position + util.vector2(0, 30))
+                updateTooltip(object, e.position)
             end),
         },
         content = ui.content({
@@ -184,9 +255,9 @@ local alchemyMenuCreateButtonHovered = false
 
 local function closeAlchemyMenu()
     if alchemyMenu then
-        if apparatusTooltip then
-            apparatusTooltip:destroy()
-            apparatusTooltip = nil
+        if tooltip then
+            tooltip:destroy()
+            tooltip = nil
         end
         alchemyMenu:destroy()
         alchemyMenu = nil
@@ -204,14 +275,24 @@ local function createInventory()
     for _, item in ipairs(inv:getAll(types.Ingredient)) do
         local icon = string.gsub(types.Ingredient.record(item).icon, '\\', '/')
         table.insert(ingrs, {
-            type = ui.TYPE.Image,
-            props = {
-                size = util.vector2(32, 32),
-                resource = ui.texture({
-                    size = util.vector2(32, 32),
-                    path = icon,
-                }),
+            template = I.MWUI.templates.padding,
+            events = {
+                mouseMove = async:callback(function(e)
+                    updateTooltip(item, e.position)
+                end),
             },
+            content = ui.content({
+                {
+                    type = ui.TYPE.Image,
+                    props = {
+                        size = util.vector2(32, 32),
+                        resource = ui.texture({
+                            size = util.vector2(32, 32),
+                            path = icon,
+                        }),
+                    },
+                },
+            }),
         })
     end
     return {
@@ -245,7 +326,7 @@ local function createAlchemyMenu(hoverCreateButton)
         events = {
             mouseMove = async:callback(function(e)
                 updateAlchemyMenu(false)
-                updateApparatusTooltip(nil, nil)
+                updateTooltip(nil, nil)
             end),
         },
         content = ui.content({
