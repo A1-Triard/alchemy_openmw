@@ -5,6 +5,7 @@ local async = require('openmw.async')
 local input = require('openmw.input')
 local types = require('openmw.types')
 local self = require('openmw.self')
+local core = require('openmw.core')
 
 local mortar = nil
 local retort = nil
@@ -92,9 +93,56 @@ local function createApparatusTooltip(object, position)
     }
 end
 
+local wortChanceValue = core.getGMST('fWortChanceValue')
+
 local function createIngredientTooltip(object, position)
     local weight = string.format('%.1f', types.Ingredient.record(object).weight)
     local value = tostring(types.Ingredient.record(object).value)
+    local alchemy = types.NPC.stats.skills.alchemy(self.object).modified
+    local visibleEffectsCount = math.floor(alchemy / wortChanceValue)
+    local info = {
+        {
+            template = I.MWUI.templates.textHeader,
+            props = {
+                text = types.Ingredient.record(object).name .. ' (' .. object.count .. ')',
+            },
+        },
+        {
+            template = I.MWUI.templates.interval,
+        },
+        {
+            template = I.MWUI.templates.textNormal,
+            props = {
+                text = 'Вес: ' .. weight,
+            },
+        },
+        {
+            template = I.MWUI.templates.interval,
+        },
+        {
+            template = I.MWUI.templates.textNormal,
+            props = {
+                text = 'Цена: ' .. value,
+            },
+        },
+    }
+    for n, e in ipairs(types.Ingredient.record(object).effects) do
+        local name
+        if n <= visibleEffectsCount then
+            name = e.effect.name
+        else
+            name = '?'
+        end
+        table.insert(info, {
+            template = I.MWUI.templates.interval,
+        })
+        table.insert(info, {
+            template = I.MWUI.templates.textNormal,
+            props = {
+                text = name,
+            },
+        })
+    end
     return {
         layer = 'Windows',
         template = I.MWUI.templates.boxSolid,
@@ -112,32 +160,7 @@ local function createIngredientTooltip(object, position)
                             horizontal = false,
                             arrange = ui.ALIGNMENT.Center,
                         },
-                        content = ui.content({
-                            {
-                                template = I.MWUI.templates.textHeader,
-                                props = {
-                                    text = types.Ingredient.record(object).name .. ' (' .. object.count .. ')',
-                                },
-                            },
-                            {
-                                template = I.MWUI.templates.interval,
-                            },
-                            {
-                                template = I.MWUI.templates.textNormal,
-                                props = {
-                                    text = 'Вес: ' .. weight,
-                                },
-                            },
-                            {
-                                template = I.MWUI.templates.interval,
-                            },
-                            {
-                                template = I.MWUI.templates.textNormal,
-                                props = {
-                                    text = 'Цена: ' .. value,
-                                },
-                            },
-                        }),
+                        content = ui.content(info),
                     },
                 }),
             },
