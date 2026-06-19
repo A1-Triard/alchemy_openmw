@@ -49,6 +49,44 @@ local function findApparatus(apparatus)
     end
 end
 
+local function createApparatusTooltip(object, position)
+    return {
+        layer = 'Windows',
+        template = I.MWUI.templates.boxSolid,
+        props = {
+            position = position,
+            anchor = util.vector2(0.4, 0),
+        },
+        content = ui.content({
+            {
+                template = I.MWUI.templates.padding,
+                content = ui.content({
+                    {
+                        template = I.MWUI.templates.textHeader,
+                        props = {
+                            text = types.Apparatus.record(object).name,
+                        },
+                    },
+                }),
+            },
+        }),
+    }
+end
+
+local apparatusTooltip = nil
+
+local function updateApparatusTooltip(apparatus, position)
+    if apparatus and apparatusTooltip then
+        apparatusTooltip.layout = createApparatusTooltip(apparatus, position)
+        apparatusTooltip:update()
+    elseif apparatus then
+        apparatusTooltip = ui.create(createApparatusTooltip(apparatus, position))
+    else
+        apparatusTooltip:destroy()
+        apparatusTooltip = nil
+    end
+end
+
 local function createApparatusItem(object)
     local image
     if object then
@@ -73,6 +111,11 @@ local function createApparatusItem(object)
     end
     return {
         template = I.MWUI.templates.padding,
+        events = {
+            mouseMove = async:callback(function(e)
+                updateApparatusTooltip(object, e.position + util.vector2(0, 30))
+            end),
+        },
         content = ui.content({
             image,
         }),
@@ -122,6 +165,10 @@ local alchemyMenuCreateButtonHovered = false
 
 local function closeAlchemyMenu()
     if alchemyMenu then
+        if apparatusTooltip then
+            apparatusTooltip:destroy()
+            apparatusTooltip = nil
+        end
         alchemyMenu:destroy()
         alchemyMenu = nil
         I.UI.setMode(nil)
@@ -151,6 +198,7 @@ local function createAlchemyMenu(hoverCreateButton)
         events = {
             mouseMove = async:callback(function(e)
                 updateAlchemyMenu(false)
+                updateApparatusTooltip(nil, util.vector2(0, 0))
             end),
         },
         content = ui.content({
