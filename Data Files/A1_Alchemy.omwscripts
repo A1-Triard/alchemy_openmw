@@ -1,0 +1,2 @@
+GLOBAL: Scripts/A1_Alchemy/override.lua
+PLAYER: Scripts/A1_Alchemy/alchemy.lua
