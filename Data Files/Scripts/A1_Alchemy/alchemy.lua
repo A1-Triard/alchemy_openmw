@@ -100,7 +100,7 @@ local function updateApparatusTooltip(apparatus, position)
         apparatusTooltip:update()
     elseif apparatus then
         apparatusTooltip = ui.create(createApparatusTooltip(apparatus, position))
-    else
+    elseif apparatusTooltip then
         apparatusTooltip:destroy()
         apparatusTooltip = nil
     end
