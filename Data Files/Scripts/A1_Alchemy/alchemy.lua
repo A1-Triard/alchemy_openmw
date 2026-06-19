@@ -198,6 +198,34 @@ local function closeAlchemyMenu()
     end
 end
 
+local function createInventory()
+    local ingrs = { }
+    local inv = types.Actor.inventory(self.object)
+    for _, item in ipairs(inv:getAll(types.Ingredient)) do
+        local icon = string.gsub(types.Ingredient.record(item).icon, '\\', '/')
+        table.insert(ingrs, {
+            type = ui.TYPE.Image,
+            props = {
+                size = util.vector2(32, 32),
+                resource = ui.texture({
+                    size = util.vector2(32, 32),
+                    path = icon,
+                }),
+            },
+        })
+    end
+    return {
+        type = ui.TYPE.Flex,
+        props = {
+            horizontal = false,
+            size = util.vector2(400, 300),
+            autoSize = false,
+            wrap = true,
+        },
+        content = ui.content(ingrs),
+    }
+end
+
 local updateAlchemyMenu = nil
 
 local function createAlchemyMenu(hoverCreateButton)
@@ -217,7 +245,7 @@ local function createAlchemyMenu(hoverCreateButton)
         events = {
             mouseMove = async:callback(function(e)
                 updateAlchemyMenu(false)
-                updateApparatusTooltip(nil, util.vector2(0, 0))
+                updateApparatusTooltip(nil, nil)
             end),
         },
         content = ui.content({
@@ -295,12 +323,7 @@ local function createAlchemyMenu(hoverCreateButton)
                             {
                                 template = I.MWUI.templates.box,
                                 content = ui.content({
-                                    {
-                                        type = ui.TYPE.Widget,
-                                        props = {
-                                            size = util.vector2(400, 300),
-                                        },
-                                    },
+                                    createInventory(),
                                 }),
                             },
                             {
