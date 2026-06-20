@@ -128,20 +128,53 @@ local function createIngredientTooltip(object, position)
     }
     for n, e in ipairs(types.Ingredient.record(object).effects) do
         local name
+        local icon
         if n <= visibleEffectsCount then
             name = e.effect.name
+            icon = {
+                type = ui.TYPE.Image,
+                props = {
+                    size = util.vector2(16, 16),
+                    resource = ui.texture({
+                        size = util.vector2(16, 16),
+                        path = string.gsub(e.effect.icon, '\\', '/'),
+                    }),
+                },
+            }
         else
             name = '?'
+            icon = nil
         end
         table.insert(info, {
             template = I.MWUI.templates.interval,
         })
-        table.insert(info, {
-            template = I.MWUI.templates.textNormal,
-            props = {
-                text = name,
-            },
-        })
+        if icon then
+            table.insert(info, {
+                type = ui.TYPE.Flex,
+                props = {
+                    horizontal = true,
+                },
+                content = ui.content({
+                    icon,
+                    {
+                        template = I.MWUI.templates.interval,
+                    },
+                    {
+                        template = I.MWUI.templates.textNormal,
+                        props = {
+                            text = name,
+                        },
+                    },
+                }),
+            })
+        else
+            table.insert(info, {
+                template = I.MWUI.templates.textNormal,
+                props = {
+                    text = name,
+                },
+            })
+        end
     end
     return {
         layer = 'Windows',
