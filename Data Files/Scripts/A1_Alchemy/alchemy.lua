@@ -313,22 +313,22 @@ local function makePotion5(mortar, retort, alembic, calcinator)
         alembic = mortar
     end
     if alembic < 15 then
-        return 0
+        return { res = 0, train = 0 }
     end
     if math.random() * 100 >= retort then
-        return 0
+        return { res = 0, train = 0 }
     end
     alch = alembic + math.random() * (mortar + 1 - alembic)
     if alch < 33 then
-        return 1
+        return { res = 1, train = 1 }
     elseif alch < 51 then
-        return 2
+        return { res = 2, train = 1 }
     elseif alch < 69 then
-        return 3
+        return { res = 3, train = 1 }
     elseif alch < 87 then
-        return 4
+        return { res = 4, train = 1 }
     else
-        return 5
+        return { res = 5, train = 1 }
     end
 end
 
@@ -349,10 +349,10 @@ local function makePotion1(mortar, retort, alembic, calcinator, difficulty)
         alembic = mortar
     end
     if alembic < 15 then
-        return 0
+        return { res = 0, train = 0 }
     end
     if math.random() * 100 >= retort then
-        return 0
+        return { res = 0, train = 0 }
     end
     alch = alembic + math.random() * (mortar + 1 - alembic)
     if alch < 33 then
@@ -367,6 +367,7 @@ local function makePotion1(mortar, retort, alembic, calcinator, difficulty)
         alch = 1
     end
     alch = difficulty / alch
+    local train = 100 / alch
     local res = 0
     if alch >= 100 then
         alch = alch - 100
@@ -375,7 +376,7 @@ local function makePotion1(mortar, retort, alembic, calcinator, difficulty)
     if math.random() * 100 < alch then
         res = res + 1
     end
-    return res
+    return { res = res, train = train }
 end
 
 local function commonEffects(ingr1, ingr2)
@@ -439,6 +440,8 @@ local function isNegativeEffect(e)
     end
 end
 
+local trainAlchemy = nil
+
 local mortar = nil
 local retort = nil
 local alembic = nil
@@ -475,7 +478,9 @@ local function makePotion(effect, ingr1, ingr2)
     a = alembicValue(a)
     c = calcinatorValue(c)
     if p.type == 1 then
-        local count = makePotion1(m, r, a, c, p.difficulty)
+        local x = makePotion1(m, r, a, c, p.difficulty)
+        local count = x.res
+        local train = x.train
         if count == 0 then
             core.sendGlobalEvent('A1AlchemyPotion', {
                 player = self.object, id = nil, count = 0, ingr1 = ingr1, ingr2 = ingr2
@@ -488,9 +493,12 @@ local function makePotion(effect, ingr1, ingr2)
             })
             ui.showMessage('Вы создали зелье')
             ambient.playSound('potion success', nil)
+            trainAlchemy(train)
         end
     else
-        local quality = makePotion5(m, r, a, c)
+        local x = makePotion5(m, r, a, c)
+        local quality = x.res
+        local train = x.train
         if quality == 0 then
             core.sendGlobalEvent('A1AlchemyPotion', {
                 player = self.object, id = nil, count = 0, ingr1 = ingr1, ingr2 = ingr2
@@ -515,6 +523,7 @@ local function makePotion(effect, ingr1, ingr2)
             })
             ui.showMessage('Вы создали зелье')
             ambient.playSound('potion success', nil)
+            trainAlchemy(train)
         end
     end
 end
@@ -886,6 +895,21 @@ local function closeAlchemyMenu()
     end
 end
 
+local alchemyProgress = 0
+
+trainAlchemy = function(train)
+    local alch = alchemy()
+    if alch < 2 then
+        alch = 2
+    end
+    alchemyProgress = alchemyProgress + 200 * train / alch
+    if alchemyProgress > 100 then
+        alchemyProgress = 0
+        closeAlchemyMenu()
+        core.sendGlobalEvent('A1AlchemySkill', { player = self.object })
+    end
+end
+
 local function createAlchemyList(hoverCreateButton)
     local alchemy = types.NPC.stats.skills.alchemy(self.object).modified
     local visibleEffectsCount = math.floor(alchemy / wortChanceValue)
@@ -1188,6 +1212,14 @@ return {
     },
     engineHandlers = {
         onKeyPress = onKeyPress,
+        onSave = function()
+            return alchemyProgress
+        end,
+        onLoad = function(data)
+            if data then
+                alchemyProgress = data
+            end
+        end,
     },
 }
 
