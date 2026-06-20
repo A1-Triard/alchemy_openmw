@@ -7,6 +7,67 @@ local types = require('openmw.types')
 local self = require('openmw.self')
 local core = require('openmw.core')
 
+local function commonEffects(ingr1, ingr2)
+    if ingr1.icon == ingr2.icon then
+        return { }
+    end
+    local res = { }
+    for n1, e1 in ipairs(ingr1.effects) do
+        for n2, e2 in ipairs(ingr2.effects) do
+            if
+                    e1.effect.id == e2.effect.id
+                and e1.affectedSkill == e2.affectedSkill
+                and e1.affectedAttribute == e2.affectedAttribute
+            then
+                table.insert(res, { effect = e1, level = math.max(n1, n2) })
+            end
+        end
+    end
+    return res
+end
+
+local negativeEffects = {
+    ['Burden'] = true,
+    ['FireDamage'] = true,
+    ['ShockDamage'] = true,
+    ['FrostDamage'] = true,
+    ['DrainAttribute'] = true,
+    ['DrainHealth'] = true,
+    ['DrainSpellpoints'] = true,
+    ['DrainFatigue'] = true,
+    ['DrainSkill'] = true,
+    ['DamageAttribute'] = true,
+    ['DamageHealth'] = true,
+    ['DamageMagicka'] = true,
+    ['DamageFatigue'] = true,
+    ['DamageSkill'] = true,
+    ['Poison'] = true,
+    ['WeaknessToFire'] = true,
+    ['WeaknessToFrost'] = true,
+    ['WeaknessToShock'] = true,
+    ['WeaknessToMagicka'] = true,
+    ['WeaknessToCommonDisease'] = true,
+    ['WeaknessToBlightDisease'] = true,
+    ['WeaknessToCorprusDisease'] = true,
+    ['WeaknessToPoison'] = true,
+    ['WeaknessToNormalWeapons'] = true,
+    ['DisintegrateWeapon'] = true,
+    ['DisintegrateArmor'] = true,
+    ['Paralyze'] = true,
+    ['Silence'] = true,
+    ['Blind'] = true,
+    ['Sound'] = true,
+    ['StuntedMagicka'] = true,
+}
+
+local function isNegativeEffect(e)
+    if negativeEffects[e.id] then
+        return true
+    else
+        return false
+    end
+end
+
 local mortar = nil
 local retort = nil
 local alembic = nil
@@ -153,6 +214,7 @@ local function createIngredientTooltip(object, position)
                 type = ui.TYPE.Flex,
                 props = {
                     horizontal = true,
+                    arrange = ui.ALIGNMENT.Center,
                 },
                 content = ui.content({
                     icon,
@@ -283,9 +345,6 @@ local function createApparatusItem(object)
     }
 end
 
-local ingredient1 = nil
-local ingredient2 = nil
-
 local updateAlchemyMenu = nil
 
 local function createIngredientItem(object)
@@ -316,17 +375,6 @@ local function createIngredientItem(object)
             mouseMove = async:callback(function(e)
                 updateTooltip(object, e.position)
             end),
-            mouseClick = async:callback(function()
-                if object then
-                    if ingredient1 == object then
-                        ingredient1 = nil
-                    else
-                        ingredient2 = nil
-                    end
-                    hideTooltip()
-                    updateAlchemyMenu(nil)
-                end
-            end),
         },
         content = ui.content({
             image,
@@ -334,7 +382,7 @@ local function createIngredientItem(object)
     }
 end
 
-local function createButton(text, textMinWidth, textTemplate, click, mouseMove)
+local function createButton(content, contentMinWidth, click, mouseMove)
     return {
         template = I.MWUI.templates.boxThick,
         events = {
@@ -355,15 +403,10 @@ local function createButton(text, textMinWidth, textTemplate, click, mouseMove)
                             {
                                 type = ui.TYPE.Widget,
                                 props = {
-                                    size = util.vector2(textMinWidth, 0),
+                                    size = util.vector2(contentMinWidth, 0),
                                 },
                             },
-                            {
-                                template = textTemplate,
-                                props = {
-                                    text = text,
-                                },
-                            },
+                            content,
                         })
                     },
                 }),
@@ -373,7 +416,7 @@ local function createButton(text, textMinWidth, textTemplate, click, mouseMove)
 end
 
 local alchemyMenu = nil
-local alchemyMenuCreateButtonHovered = false
+local alchemyMenuCreateButtonHovered = -1
 
 local function closeAlchemyMenu()
     if alchemyMenu then
@@ -384,8 +427,6 @@ local function closeAlchemyMenu()
         end
         alchemyMenu:destroy()
         alchemyMenu = nil
-        ingredient1 = nil
-        ingredient2 = nil
         mortar = nil
         retort = nil
         alembic = nil
@@ -398,62 +439,151 @@ local function closeAlchemyMenu()
     end
 end
 
-local function createInventory()
-    local ingrs = { }
+local function createAlchemyList(hoverCreateButton)
+    local alchemy = types.NPC.stats.skills.alchemy(self.object).modified
+    local visibleEffectsCount = math.floor(alchemy / wortChanceValue)
+    local res = { }
     local inv = types.Actor.inventory(self.object)
-    for _, item in ipairs(inv:getAll(types.Ingredient)) do
-        if item ~= ingredient1 and item ~= ingredient2 then
-            local icon = string.gsub(types.Ingredient.record(item).icon, '\\', '/')
-            table.insert(ingrs, {
-                template = I.MWUI.templates.padding,
-                events = {
-                    mouseMove = async:callback(function(e)
-                        updateTooltip(item, e.position)
-                    end),
-                    mouseClick = async:callback(function()
-                        if ingredient1 then
-                            ingredient2 = item
+    local ingrs = inv:getAll(types.Ingredient)
+    local buttonIndex = 0
+    for _, ingr1 in ipairs(ingrs) do
+        for _, ingr2 in ipairs(ingrs) do
+            if types.Ingredient.record(ingr2).id > types.Ingredient.record(ingr1).id then
+                local effects = commonEffects(types.Ingredient.record(ingr1), types.Ingredient.record(ingr2))
+                local hasNegativeEffects = false
+                for _, e in ipairs(effects) do
+                    if isNegativeEffect(e.effect.effect) then
+                        hasNegativeEffects = true
+                        break
+                    end
+                end
+                local first = true
+                if not hasNegativeEffects then
+                    for _, e in ipairs(effects) do
+                        local buttonIndexCopy = buttonIndex
+                        local createButtonTemplate
+                        if hoverCreateButton == buttonIndex then
+                            createButtonTemplate = I.MWUI.templates.textHeader
                         else
-                            ingredient1 = item
+                            createButtonTemplate = I.MWUI.templates.textNormal
                         end
-                        hideTooltip()
-                        updateAlchemyMenu(nil)
-                    end),
-                },
-                content = ui.content({
-                    {
-                        type = ui.TYPE.Image,
-                        props = {
-                            size = util.vector2(32, 32),
-                            resource = ui.texture({
-                                size = util.vector2(32, 32),
-                                path = icon,
+                        local name
+                        local icon
+                        if e.level <= visibleEffectsCount then
+                            name = e.effect.effect.name
+                            icon = {
+                                type = ui.TYPE.Image,
+                                props = {
+                                    size = util.vector2(16, 16),
+                                    resource = ui.texture({
+                                        size = util.vector2(16, 16),
+                                        path = string.gsub(e.effect.effect.icon, '\\', '/'),
+                                    }),
+                                },
+                            }
+                        else
+                            name = '?'
+                            icon = nil
+                        end
+                        local effectInfo
+                        if icon then
+                            effectInfo = {
+                                type = ui.TYPE.Flex,
+                                props = {
+                                    horizontal = true,
+                                    arrange = ui.ALIGNMENT.Center,
+                                },
+                                content = ui.content({
+                                    icon,
+                                    {
+                                        template = I.MWUI.templates.interval,
+                                    },
+                                    {
+                                        template = createButtonTemplate,
+                                        props = {
+                                            text = name,
+                                        },
+                                    },
+                                }),
+                            }
+                        else
+                            effectInfo = {
+                                template = createButtonTemplate,
+                                props = {
+                                    text = name,
+                                },
+                            }
+                        end
+                        if first then
+                            first = false
+                        else
+                            table.insert(res, {
+                                template = I.MWUI.templates.interval,
+                            })
+                        end
+                        table.insert(res, {
+                            type = ui.TYPE.Flex,
+                            props = {
+                                horizontal = true,
+                                arrange = ui.ALIGNMENT.Center,
+                            },
+                            content = ui.content({
+                                {
+                                    template = I.MWUI.templates.box,
+                                    content = ui.content({
+                                        createIngredientItem(ingr1),
+                                    }),
+                                },
+                                {
+                                    template = I.MWUI.templates.interval,
+                                },
+                                {
+                                    template = I.MWUI.templates.textNormal,
+                                    props = {
+                                        text = '+',
+                                    },
+                                },
+                                {
+                                    template = I.MWUI.templates.interval,
+                                },
+                                {
+                                    template = I.MWUI.templates.box,
+                                    content = ui.content({
+                                        createIngredientItem(ingr2),
+                                    }),
+                                },
+                                {
+                                    template = I.MWUI.templates.interval,
+                                },
+                                {
+                                    template = I.MWUI.templates.textNormal,
+                                    props = {
+                                        text = '=',
+                                    },
+                                },
+                                {
+                                    template = I.MWUI.templates.interval,
+                                },
+                                createButton(
+                                    effectInfo,
+                                    0,
+                                    function() end,
+                                    function(e)
+                                        updateAlchemyMenu(buttonIndexCopy)
+                                    end
+                                ),
                             }),
-                        },
-                    },
-                }),
-            })
+                        })
+                        buttonIndex = buttonIndex + 1
+                    end
+                end
+            end
         end
     end
-    return {
-        type = ui.TYPE.Flex,
-        props = {
-            horizontal = false,
-            size = util.vector2(400, 300),
-            autoSize = false,
-            wrap = true,
-        },
-        content = ui.content(ingrs),
-    }
+    return res
 end
 
 local function createAlchemyMenu(hoverCreateButton)
-    local createButtonTemplate
-    if hoverCreateButton then
-        createButtonTemplate = I.MWUI.templates.textHeader
-    else
-        createButtonTemplate = I.MWUI.templates.textNormal
-    end
     return {
         layer = 'Windows',
         template = I.MWUI.templates.boxTransparentThick,
@@ -463,7 +593,7 @@ local function createAlchemyMenu(hoverCreateButton)
         }, 
         events = {
             mouseMove = async:callback(function(e)
-                updateAlchemyMenu(false)
+                updateAlchemyMenu(-1)
                 updateTooltip(nil, nil)
             end),
         },
@@ -533,7 +663,7 @@ local function createAlchemyMenu(hoverCreateButton)
                             {
                                 template = I.MWUI.templates.textHeader,
                                 props = {
-                                    text = 'Ингридиенты',
+                                    text = 'Создать',
                                 },
                             },
                             {
@@ -542,43 +672,9 @@ local function createAlchemyMenu(hoverCreateButton)
                             {
                                 type = ui.TYPE.Flex,
                                 props = {
-                                    horizontal = true,
+                                    horizontal = false,
                                 },
-                                content = ui.content({
-                                    {
-                                        template = I.MWUI.templates.box,
-                                        content = ui.content({
-                                            createIngredientItem(ingredient1),
-                                        }),
-                                    },
-                                    {
-                                        template = I.MWUI.templates.interval,
-                                    },
-                                    {
-                                        template = I.MWUI.templates.box,
-                                        content = ui.content({
-                                            createIngredientItem(ingredient2),
-                                        }),
-                                    },
-                                }),
-                            },
-                            {
-                                template = I.MWUI.templates.interval,
-                            },
-                            {
-                                template = I.MWUI.templates.textHeader,
-                                props = {
-                                    text = 'Инвентарь',
-                                },
-                            },
-                            {
-                                template = I.MWUI.templates.interval,
-                            },
-                            {
-                                template = I.MWUI.templates.box,
-                                content = ui.content({
-                                    createInventory(),
-                                }),
+                                content = ui.content(createAlchemyList(hoverCreateButton)),
                             },
                             {
                                 template = I.MWUI.templates.interval,
@@ -587,20 +683,18 @@ local function createAlchemyMenu(hoverCreateButton)
                                 type = ui.TYPE.Flex,
                                 props = {
                                     horizontal = true,
-                                    align = ui.ALIGNMENT.End,
+                                    align = ui.ALIGNMENT.Center,
                                 },
                                 external = {
                                     stretch = 1,
                                 },
                                 content = ui.content({
-                                    createButton('Создать', 80, createButtonTemplate, function()
-                                    end, function(e)
-                                        updateAlchemyMenu(true)
-                                    end),
-                                    {
-                                        template = I.MWUI.templates.interval,
-                                    },
-                                    createButton('Отмена', 80, I.MWUI.templates.textHeader, function()
+                                    createButton({
+                                        template = I.MWUI.templates.textHeader,
+                                        props = {
+                                            text = 'Закрыть',
+                                        },
+                                    }, 80, function()
                                         closeAlchemyMenu()
                                     end, function(e)
                                     end),
@@ -616,8 +710,8 @@ end
 
 updateAlchemyMenu = function(hoverCreateButton)
     if alchemyMenu and hoverCreateButton ~= alchemyMenuCreateButtonHovered then
-        alchemyMenuCreateButtonHovered = hoverCreateButton == true
-        alchemyMenu.layout = createAlchemyMenu(alchemyMenuCreateButtonHovered)
+        alchemyMenuCreateButtonHovered = hoverCreateButton
+        alchemyMenu.layout = createAlchemyMenu(hoverCreateButton)
         alchemyMenu:update()
     end
 end
