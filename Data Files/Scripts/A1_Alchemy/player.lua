@@ -630,6 +630,20 @@ local function attributeName(attr)
     return attributes[attr]
 end
 
+local function effectName(effect)
+    if effect.effect.id == 'restoreattribute' then
+        return 'Восстановить: ' .. attributeName(effect.affectedAttribute)
+    elseif effect.effect.id == 'fortifyattribute' then
+        return 'Увеличить: ' .. attributeName(effect.affectedAttribute)
+    elseif effect.effect.id == 'damageattribute' then
+        return 'Отнять: ' .. attributeName(effect.affectedAttribute)
+    elseif effect.effect.id == 'drainattribute' then
+        return 'Уменьшить: ' .. attributeName(effect.affectedAttribute)
+    else
+        return effect.effect.name
+    end
+end
+
 local function createIngredientTooltip(object, position)
     local weight = string.format('%.1f', types.Ingredient.record(object).weight)
     local value = tostring(types.Ingredient.record(object).value)
@@ -665,10 +679,7 @@ local function createIngredientTooltip(object, position)
         local name
         local icon
         if n <= visibleEffectsCount then
-            name = e.effect.name
-            if e.affectedAttribute then
-                name = name .. ': ' .. attributeName(e.affectedAttribute)
-            end
+            name = effectName(e)
             icon = {
                 type = ui.TYPE.Image,
                 props = {
@@ -955,6 +966,7 @@ local function scan()
             end
         end
     end
+    table.sort(res, function(a, b) return a.level < b.level end)
     return res
 end
 
@@ -989,7 +1001,7 @@ local function createAlchemyList(scanRes, bi, hoverCreateButton)
         local name
         local icon
         if e.level <= visibleEffectsCount then
-            name = e.effect.effect.name
+            name = effectName(e.effect)
             icon = {
                 type = ui.TYPE.Image,
                 props = {
