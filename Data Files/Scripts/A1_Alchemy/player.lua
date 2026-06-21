@@ -36,7 +36,7 @@ local potions = {
         'p_restore_fatigue_b', 'p_restore_fatigue_c', 'p_restore_fatigue_s',
         'p_restore_fatigue_q', 'p_restore_fatigue_e'
     ),
-    ['restorespellpoints'] = potion5(
+    ['restoremagicka'] = potion5(
         'p_restore_magicka_b', 'p_restore_magicka_c', 'p_restore_magicka_s',
         'p_restore_magicka_q', 'p_restore_magicka_e'
     ),
@@ -405,7 +405,7 @@ local negativeEffects = {
     ['frostdamage'] = true,
     ['drainattribute'] = true,
     ['drainhealth'] = true,
-    ['drainspellpoints'] = true,
+    ['drainmagicka'] = true,
     ['drainfatigue'] = true,
     ['drainskill'] = true,
     ['damageattribute'] = true,
@@ -615,6 +615,21 @@ end
 
 local wortChanceValue = core.getGMST('fWortChanceValue')
 
+local attributes = {
+    ['agility'] = 'Ловкость',
+    ['endurance'] = 'Выносливость',
+    ['intelligence'] = 'Интеллект',
+    ['luck'] = 'Удача',
+    ['personality'] = 'Привлекательность',
+    ['speed'] = 'Скорость',
+    ['strength'] = 'Сила',
+    ['willpower'] = 'Сила воли',
+}
+
+local function attributeName(attr)
+    return attributes[attr]
+end
+
 local function createIngredientTooltip(object, position)
     local weight = string.format('%.1f', types.Ingredient.record(object).weight)
     local value = tostring(types.Ingredient.record(object).value)
@@ -651,6 +666,9 @@ local function createIngredientTooltip(object, position)
         local icon
         if n <= visibleEffectsCount then
             name = e.effect.name
+            if e.affectedAttribute then
+                name = name .. ': ' .. attributeName(e.affectedAttribute)
+            end
             icon = {
                 type = ui.TYPE.Image,
                 props = {
