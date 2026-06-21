@@ -968,7 +968,7 @@ local function split(a, n)
             cur = { }
         end
     end
-    if #cur then
+    if #cur ~= 0 then
         table.insert(res, cur)
     end
     return res
@@ -1102,11 +1102,11 @@ local function createAlchemyList(scanRes, bi, hoverCreateButton)
     return res
 end
 
-local function createColumns(hoverCreateButton)
-    local scanRes = split(scan(), 12)
+local function createColumns(scanRes, hoverCreateButton)
+    local splittedScanRes = split(scanRes, 12)
     local columns = { }
     local bi = { buttonIndex = 0 }
-    for i, column in ipairs(scanRes) do
+    for i, column in ipairs(splittedScanRes) do
         if i ~= 1 then
             table.insert(columns, {
                 template = I.MWUI.templates.interval,
@@ -1130,6 +1130,16 @@ local function createColumns(hoverCreateButton)
 end
 
 local function createAlchemyMenu(hoverCreateButton)
+    local scanRes = scan()
+    local createText
+    local createTextTemplate
+    if #scanRes ~= 0 then
+        createText = 'Создать'
+        createTextTemplate = I.MWUI.templates.textHeader
+    else
+        createText = 'Недостаточно ингредиентов'
+        createTextTemplate = I.MWUI.templates.textNormal
+    end
     return {
         layer = 'Windows',
         template = I.MWUI.templates.boxTransparentThick,
@@ -1207,15 +1217,15 @@ local function createAlchemyMenu(hoverCreateButton)
                                 template = I.MWUI.templates.interval,
                             },
                             {
-                                template = I.MWUI.templates.textHeader,
+                                template = createTextTemplate,
                                 props = {
-                                    text = 'Создать',
+                                    text = createText,
                                 },
                             },
                             {
                                 template = I.MWUI.templates.interval,
                             },
-                            createColumns(hoverCreateButton),
+                            createColumns(scanRes, hoverCreateButton),
                             {
                                 template = I.MWUI.templates.interval,
                             },
