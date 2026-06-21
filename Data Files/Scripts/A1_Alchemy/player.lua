@@ -71,7 +71,7 @@ local potions = {
         'p_restore_personality_b', 'p_restore_personality_c', 'p_restore_personality_s',
         'p_restore_personality_q', 'p_restore_personality_e'
     ),
-    ['fortifyspellpoints'] = potion5(
+    ['fortifymagicka'] = potion5(
         'p_fortify_magicka_b', 'p_fortify_magicka_c', 'p_fortify_magicka_s',
         'p_fortify_magicka_q', 'p_fortify_magicka_e'
     ),
@@ -477,6 +477,10 @@ local function makePotion(effect, ingr1, ingr2)
     r = retortValue(r)
     a = alembicValue(a)
     c = calcinatorValue(c)
+    if ingr1.count == 0 or ingr2.count == 0 then
+        ui.showMessage('Недостаточно ингредиентов')
+        return
+    end
     if p.type == 1 then
         local x = makePotion1(m, r, a, c, p.difficulty)
         local count = x.res
@@ -910,13 +914,10 @@ trainAlchemy = function(train)
     end
 end
 
-local function createAlchemyList(hoverCreateButton)
-    local alchemy = types.NPC.stats.skills.alchemy(self.object).modified
-    local visibleEffectsCount = math.floor(alchemy / wortChanceValue)
+local function scan()
     local res = { }
     local inv = types.Actor.inventory(self.object)
     local ingrs = inv:getAll(types.Ingredient)
-    local buttonIndex = 0
     for _, ingr1 in ipairs(ingrs) do
         for _, ingr2 in ipairs(ingrs) do
             if types.Ingredient.record(ingr2).id > types.Ingredient.record(ingr1).id then
@@ -928,133 +929,186 @@ local function createAlchemyList(hoverCreateButton)
                         break
                     end
                 end
-                local first = true
                 if not hasNegativeEffects then
                     for _, e in ipairs(effects) do
-                        local buttonIndexCopy = buttonIndex
-                        local createButtonTemplate
-                        if hoverCreateButton == buttonIndex then
-                            createButtonTemplate = I.MWUI.templates.textHeader
-                        else
-                            createButtonTemplate = I.MWUI.templates.textNormal
-                        end
-                        local name
-                        local icon
-                        if e.level <= visibleEffectsCount then
-                            name = e.effect.effect.name
-                            icon = {
-                                type = ui.TYPE.Image,
-                                props = {
-                                    size = util.vector2(16, 16),
-                                    resource = ui.texture({
-                                        size = util.vector2(16, 16),
-                                        path = string.gsub(e.effect.effect.icon, '\\', '/'),
-                                    }),
-                                },
-                            }
-                        else
-                            name = '?'
-                            icon = nil
-                        end
-                        local effectInfo
-                        if icon then
-                            effectInfo = {
-                                type = ui.TYPE.Flex,
-                                props = {
-                                    horizontal = true,
-                                    arrange = ui.ALIGNMENT.Center,
-                                },
-                                content = ui.content({
-                                    icon,
-                                    {
-                                        template = I.MWUI.templates.interval,
-                                    },
-                                    {
-                                        template = createButtonTemplate,
-                                        props = {
-                                            text = name,
-                                        },
-                                    },
-                                }),
-                            }
-                        else
-                            effectInfo = {
-                                template = createButtonTemplate,
-                                props = {
-                                    text = name,
-                                },
-                            }
-                        end
-                        if first then
-                            first = false
-                        else
-                            table.insert(res, {
-                                template = I.MWUI.templates.interval,
-                            })
-                        end
-                        table.insert(res, {
-                            type = ui.TYPE.Flex,
-                            props = {
-                                horizontal = true,
-                                arrange = ui.ALIGNMENT.Center,
-                            },
-                            content = ui.content({
-                                {
-                                    template = I.MWUI.templates.box,
-                                    content = ui.content({
-                                        createIngredientItem(ingr1),
-                                    }),
-                                },
-                                {
-                                    template = I.MWUI.templates.interval,
-                                },
-                                {
-                                    template = I.MWUI.templates.textNormal,
-                                    props = {
-                                        text = '+',
-                                    },
-                                },
-                                {
-                                    template = I.MWUI.templates.interval,
-                                },
-                                {
-                                    template = I.MWUI.templates.box,
-                                    content = ui.content({
-                                        createIngredientItem(ingr2),
-                                    }),
-                                },
-                                {
-                                    template = I.MWUI.templates.interval,
-                                },
-                                {
-                                    template = I.MWUI.templates.textNormal,
-                                    props = {
-                                        text = '=',
-                                    },
-                                },
-                                {
-                                    template = I.MWUI.templates.interval,
-                                },
-                                createButton(
-                                    effectInfo,
-                                    0,
-                                    function()
-                                        makePotion(e.effect, ingr1, ingr2)
-                                        updateAlchemyMenu(-1)
-                                    end,
-                                    function(e)
-                                        updateAlchemyMenu(buttonIndexCopy)
-                                    end
-                                ),
-                            }),
-                        })
-                        buttonIndex = buttonIndex + 1
+                        table.insert(res, { ingr1 = ingr1, ingr2 = ingr2, effect = e.effect, level = e.level })
                     end
                 end
             end
         end
     end
     return res
+end
+
+local function split(a, n)
+    local res = { }
+    local cur = { }
+    for _, x in ipairs(a) do
+        table.insert(cur, x)
+        if #cur >= n then
+            table.insert(res, cur)
+            cur = { }
+        end
+    end
+    if #cur then
+        table.insert(res, cur)
+    end
+    return res
+end
+
+local function createAlchemyList(scanRes, bi, hoverCreateButton)
+    local alchemy = types.NPC.stats.skills.alchemy(self.object).modified
+    local visibleEffectsCount = math.floor(alchemy / wortChanceValue)
+    local res = { }
+    for i, e in ipairs(scanRes) do
+        local buttonIndexCopy = bi.buttonIndex
+        local createButtonTemplate
+        if hoverCreateButton == bi.buttonIndex then
+            createButtonTemplate = I.MWUI.templates.textHeader
+        else
+            createButtonTemplate = I.MWUI.templates.textNormal
+        end
+        local name
+        local icon
+        if e.level <= visibleEffectsCount then
+            name = e.effect.effect.name
+            icon = {
+                type = ui.TYPE.Image,
+                props = {
+                    size = util.vector2(16, 16),
+                    resource = ui.texture({
+                        size = util.vector2(16, 16),
+                        path = string.gsub(e.effect.effect.icon, '\\', '/'),
+                    }),
+                },
+            }
+        else
+            name = '?'
+            icon = nil
+        end
+        local effectInfo
+        if icon then
+            effectInfo = {
+                type = ui.TYPE.Flex,
+                props = {
+                    horizontal = true,
+                    arrange = ui.ALIGNMENT.Center,
+                },
+                content = ui.content({
+                    icon,
+                    {
+                        template = I.MWUI.templates.interval,
+                    },
+                    {
+                        template = createButtonTemplate,
+                        props = {
+                            text = name,
+                        },
+                    },
+                }),
+            }
+        else
+            effectInfo = {
+                template = createButtonTemplate,
+                props = {
+                    text = name,
+                },
+            }
+        end
+        if i ~= 1 then
+            table.insert(res, {
+                template = I.MWUI.templates.interval,
+            })
+        end
+        local effectCopy = e.effect
+        local ingr1Copy = e.ingr1
+        local ingr2Copy = e.ingr2
+        table.insert(res, {
+            type = ui.TYPE.Flex,
+            props = {
+                horizontal = true,
+                arrange = ui.ALIGNMENT.Center,
+            },
+            content = ui.content({
+                {
+                    template = I.MWUI.templates.box,
+                    content = ui.content({
+                        createIngredientItem(e.ingr1),
+                    }),
+                },
+                {
+                    template = I.MWUI.templates.interval,
+                },
+                {
+                    template = I.MWUI.templates.textNormal,
+                    props = {
+                        text = '+',
+                    },
+                },
+                {
+                    template = I.MWUI.templates.interval,
+                },
+                {
+                    template = I.MWUI.templates.box,
+                    content = ui.content({
+                        createIngredientItem(e.ingr2),
+                    }),
+                },
+                {
+                    template = I.MWUI.templates.interval,
+                },
+                {
+                    template = I.MWUI.templates.textNormal,
+                    props = {
+                        text = '=',
+                    },
+                },
+                {
+                    template = I.MWUI.templates.interval,
+                },
+                createButton(
+                    effectInfo,
+                    40,
+                    function()
+                        makePotion(effectCopy, ingr1Copy, ingr2Copy)
+                        updateAlchemyMenu(-1)
+                    end,
+                    function(e)
+                        updateAlchemyMenu(buttonIndexCopy)
+                    end
+                ),
+            }),
+        })
+        bi.buttonIndex = bi.buttonIndex + 1
+    end
+    return res
+end
+
+local function createColumns(hoverCreateButton)
+    local scanRes = split(scan(), 12)
+    local columns = { }
+    local bi = { buttonIndex = 0 }
+    for i, column in ipairs(scanRes) do
+        if i ~= 1 then
+            table.insert(columns, {
+                template = I.MWUI.templates.interval,
+            })
+        end
+        table.insert(columns, {
+            type = ui.TYPE.Flex,
+            props = {
+                horizontal = false,
+            },
+            content = ui.content(createAlchemyList(column, bi, hoverCreateButton)),
+        })
+    end
+    return {
+        type = ui.TYPE.Flex,
+        props = {
+            horizontal = true,
+        },
+        content = ui.content(columns),
+    }
 end
 
 local function createAlchemyMenu(hoverCreateButton)
@@ -1143,13 +1197,7 @@ local function createAlchemyMenu(hoverCreateButton)
                             {
                                 template = I.MWUI.templates.interval,
                             },
-                            {
-                                type = ui.TYPE.Flex,
-                                props = {
-                                    horizontal = false,
-                                },
-                                content = ui.content(createAlchemyList(hoverCreateButton)),
-                            },
+                            createColumns(hoverCreateButton),
                             {
                                 template = I.MWUI.templates.interval,
                             },
