@@ -111,7 +111,7 @@ local potions = {
         'p_fortify_health_b', 'p_fortify_health_c', 'p_fortify_health_s',
         'p_fortify_health_q', 'p_fortify_health_e'
     ),
-    ['fortifyattribute:intellegence'] = potion5(
+    ['fortifyattribute:intelligence'] = potion5(
         'p_fortify_intelligence_b', 'p_fortify_intelligence_c', 'p_fortify_intelligence_s',
         'p_fortify_intelligence_q', 'p_fortify_intelligence_e'
     ),
@@ -167,7 +167,7 @@ local potions = {
         'p_restore_endurance_b', 'p_restore_endurance_c', 'p_restore_endurance_s',
         'p_restore_endurance_q', 'p_restore_endurance_e'
     ),
-    ['restoreattribute:intellegence'] = potion5(
+    ['restoreattribute:intelligence'] = potion5(
         'p_restore_intelligence_b', 'p_restore_intelligence_c', 'p_restore_intelligence_s',
         'p_restore_intelligence_q', 'p_restore_intelligence_e'
     ),
@@ -541,19 +541,19 @@ local function findApparatus(apparatus)
     for _, item in ipairs(inv:getAll(types.Apparatus)) do
         local record = types.Apparatus.record(item)
         if record.type == types.Apparatus.TYPE.MortarPestle then
-            if not mortar or types.Apparatus.record(mortar).quiality < record.quiality then
+            if not mortar or types.Apparatus.record(mortar).quality < record.quality then
                 mortar = item
             end
         elseif record.type == types.Apparatus.TYPE.Retort then
-            if not retort or types.Apparatus.record(retort).quiality < record.quiality then
+            if not retort or types.Apparatus.record(retort).quality < record.quality then
                 retort = item
             end
         elseif record.type == types.Apparatus.TYPE.Alembic then
-            if not alembic or types.Apparatus.record(alembic).quiality < record.quiality then
+            if not alembic or types.Apparatus.record(alembic).quality < record.quality then
                 alembic = item
             end
         else -- record.type == types.Apparatus.TYPE.Calcinator
-            if not calcinator or types.Apparatus.record(calcinator).quiality < record.quiality then
+            if not calcinator or types.Apparatus.record(calcinator).quality < record.quality then
                 calcinator = item
             end
         end
