@@ -571,7 +571,70 @@ local function findApparatus(apparatus)
 end
 
 local function createApparatusTooltip(object, position)
-    local quality = string.format('%.2f', types.Apparatus.record(object).quality)
+    local alch = alchemy()
+    local m
+    if mortar then
+        m = types.Apparatus.record(mortar).quality
+    else
+        m = 0
+    end
+    local r
+    if retort then
+        r = types.Apparatus.record(retort).quality
+    else
+        r = 0
+    end
+    local a
+    if alembic then
+        a = types.Apparatus.record(alembic).quality
+    else
+        a = 0
+    end
+    local c
+    if calcinator then
+        c = types.Apparatus.record(calcinator).quality
+    else
+        c = 0
+    end
+    m = mortarValue(m)
+    r = retortValue(r)
+    a = alembicValue(a)
+    c = calcinatorValue(c)
+    local retortHint = alch > r
+    alch = alch + c
+    local mortarHint = alch > m
+    local alembicHint = alch > a
+    a = a - 9
+    if a >= m then
+        alembicHint = false
+    end
+    local hint = false
+    if mortarHint and object == mortar then
+        hint = true
+    elseif retortHint and object == retort then
+        hint = true
+    elseif alembicHint and object == alembic then
+        hint = true
+    end
+    local content = {
+        {
+            template = I.MWUI.templates.textHeader,
+            props = {
+                text = types.Apparatus.record(object).name,
+            },
+        },
+    }
+    if hint then
+        table.insert(content, {
+            template = I.MWUI.templates.interval,
+        })
+        table.insert(content, {
+            template = I.MWUI.templates.textNormal,
+            props = {
+                text = 'Низкое качество',
+            },
+        })
+    end
     return {
         layer = 'Notification',
         template = I.MWUI.templates.boxSolid,
@@ -589,23 +652,7 @@ local function createApparatusTooltip(object, position)
                             horizontal = false,
                             arrange = ui.ALIGNMENT.Center,
                         },
-                        content = ui.content({
-                            {
-                                template = I.MWUI.templates.textHeader,
-                                props = {
-                                    text = types.Apparatus.record(object).name,
-                                },
-                            },
-                            {
-                                template = I.MWUI.templates.interval,
-                            },
-                            {
-                                template = I.MWUI.templates.textNormal,
-                                props = {
-                                    text = 'Качество: ' .. quality,
-                                },
-                            },
-                        }),
+                        content = ui.content(content),
                     },
                 }),
             },
