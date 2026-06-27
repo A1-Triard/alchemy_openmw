@@ -313,7 +313,7 @@ local function makePotion5(mortar, retort, alembic, calcinator)
         alembic = mortar
     end
     if alembic < 15 then
-        return { res = 0, train = 0 }
+        return { res = -1, train = 0 }
     end
     if math.random() * 100 >= retort then
         return { res = 0, train = 0 }
@@ -349,7 +349,7 @@ local function makePotion1(mortar, retort, alembic, calcinator, difficulty)
         alembic = mortar
     end
     if alembic < 15 then
-        return { res = 0, train = 0 }
+        return { res = -1, train = 0 }
     end
     if math.random() * 100 >= retort then
         return { res = 0, train = 0 }
@@ -485,11 +485,15 @@ local function makePotion(effect, ingr1, ingr2)
         local x = makePotion1(m, r, a, c, p.difficulty)
         local count = x.res
         local train = x.train
-        if count == 0 then
+        if count <= 0 then
             core.sendGlobalEvent('A1AlchemyPotion', {
                 player = self.object, id = nil, count = 0, ingr1 = ingr1, ingr2 = ingr2
             })
-            ui.showMessage('Вам не удалось создать зелье')
+            if count < 0 then
+                ui.showMessage('Выглядит слишком сложным')
+            else
+                ui.showMessage('Вам не удалось создать зелье')
+            end
             ambient.playSound('potion fail', nil)
         else
             core.sendGlobalEvent('A1AlchemyPotion', {
@@ -503,11 +507,15 @@ local function makePotion(effect, ingr1, ingr2)
         local x = makePotion5(m, r, a, c)
         local quality = x.res
         local train = x.train
-        if quality == 0 then
+        if quality <= 0 then
             core.sendGlobalEvent('A1AlchemyPotion', {
                 player = self.object, id = nil, count = 0, ingr1 = ingr1, ingr2 = ingr2
             })
-            ui.showMessage('Вам не удалось создать зелье')
+            if quality < 0 then
+                ui.showMessage('Выглядит слишком сложным')
+            else
+                ui.showMessage('Вам не удалось создать зелье')
+            end
             ambient.playSound('potion fail', nil)
         else
             local id
